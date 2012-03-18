@@ -1,6 +1,7 @@
 module Ddx where
 
 import Data.Char
+import Data.List
 
 data Token = Name String | Value Double | Add | Sub | Mult | Div deriving(Show)
 
@@ -31,6 +32,12 @@ tokenizeValue (x : xs) toks word
 
 data Expr = Var String | Const Double | Sum Expr Expr | Diff Expr Expr |
         Prod Expr Expr | Quo Expr Expr deriving(Show, Eq)
+
+-- Split a list on the first occurance of a key.
+findAndSplit keys items = findAndSplit' $ span (`notElem` keys) items
+
+findAndSplit' (left, []) = (left, Nothing, [])
+findAndSplit' (left, (key : right)) = (left, Just key, right)
 
 -- TODO: parse :: [Token] -> Expr
 
