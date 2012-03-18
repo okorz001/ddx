@@ -1,4 +1,4 @@
-module Ddx where
+module Ddx (Token(..), Expr(..), tokenize, parse, derive, reduce) where
 
 import Data.Char
 import Data.List
