@@ -3,7 +3,8 @@ module Ddx where
 import Data.Char
 import Data.List
 
-data Token = Name String | Value Double | Add | Sub | Mult | Div deriving(Show)
+data Token = Name String | Value Double | Add | Sub | Mult | Div
+    deriving(Show, Eq)
 
 tokenize str = reverse $ tokenize' str []
 
@@ -39,7 +40,25 @@ findAndSplit keys items = findAndSplit' $ span (`notElem` keys) items
 findAndSplit' (left, []) = (left, Nothing, [])
 findAndSplit' (left, (key : right)) = (left, Just key, right)
 
--- TODO: parse :: [Token] -> Expr
+-- The earlier tokens are parsed, the looser the binding.
+parse toks = parseSumDiff toks
+
+parseSumDiff toks = parseSumDiff' toks $ findAndSplit [Add, Sub] toks
+
+parseSumDiff' toks (left, (Just Add), right) = Sum (parse left) (parse right)
+parseSumDiff' toks (left, (Just Sub), right) = Diff (parse left) (parse right)
+parseSumDiff' toks (_, Nothing, _) = parseProdQuo toks
+
+parseProdQuo toks = parseProdQuo' toks $ findAndSplit [Mult, Div] toks
+
+parseProdQuo' toks (left, (Just Mult), right) = Prod (parse left) (parse right)
+parseProdQuo' toks (left, (Just Div), right) = Quo (parse left) (parse right)
+parseProdQuo' toks (_, Nothing, _) = parseConstVar toks
+
+-- Const and Var are terminal. There should not be any other tokens.
+parseConstVar [Value x] = Const x
+parseConstVar [Name x] = Var x
+parseConstVar toks = error $ "Unexpected token(s): " ++ show toks
 
 derive _ (Const _) = Const 0
 -- Cannot use pattern matching to find equal parameters.
