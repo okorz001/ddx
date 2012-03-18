@@ -12,7 +12,7 @@ tokenize' [] toks = toks
 tokenize' (x : xs) toks
     | isSpace x  = tokenize' xs toks
     | isLetter x = tokenizeName xs toks [x]
-    | isDigit x  = tokenizeNum xs toks [x]
+    | isDigit x  = tokenizeValue xs toks [x]
     | x == '+'   = tokenize' xs $ Add : toks
     | x == '-'   = tokenize' xs $ Sub : toks
     | x == '*'   = tokenize' xs $ Mult : toks
@@ -24,9 +24,9 @@ tokenizeName (x : xs) toks word
     | isLetter x = tokenizeName xs toks $ x : word
     | otherwise  = tokenize' (x : xs) $ Name(reverse word) : toks
 
-tokenizeNum [] toks word = Value(read . reverse $ word) : toks
-tokenizeNum (x : xs) toks word
-    | isDigit x = tokenizeNum xs toks $ x : word
+tokenizeValue [] toks word = Value(read . reverse $ word) : toks
+tokenizeValue (x : xs) toks word
+    | isDigit x = tokenizeValue xs toks $ x : word
     | otherwise = tokenize' (x : xs) $ Value(read . reverse $ word) : toks
 
 data Expr = Var String | Const Double | Sum Expr Expr | Diff Expr Expr |
