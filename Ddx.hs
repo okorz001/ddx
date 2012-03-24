@@ -21,15 +21,19 @@ tokenize' (x : xs) toks
     | x == '/'   = tokenize' xs $ Div : toks
     | otherwise  = error $ "Unrecognized symbol: " ++ [x]
 
-tokenizeName [] toks word = Name(reverse word) : toks
+pushName word toks = Name(reverse word) : toks
+
+tokenizeName [] toks word = tokenize' [] $ pushName word toks
 tokenizeName (x : xs) toks word
     | isLetter x = tokenizeName xs toks $ x : word
-    | otherwise  = tokenize' (x : xs) $ Name(reverse word) : toks
+    | otherwise  = tokenize' (x : xs) $ pushName word toks
 
-tokenizeValue [] toks word = Value(read . reverse $ word) : toks
+pushValue word toks = Value(read . reverse $ word) : toks
+
+tokenizeValue [] toks word = tokenize' [] $ pushValue word toks
 tokenizeValue (x : xs) toks word
     | isDigit x = tokenizeValue xs toks $ x : word
-    | otherwise = tokenize' (x : xs) $ Value(read . reverse $ word) : toks
+    | otherwise = tokenize' (x : xs) $ pushValue word toks
 
 data Expr = Var String | Const Double | Sum Expr Expr | Diff Expr Expr |
         Prod Expr Expr | Quo Expr Expr deriving(Show, Eq)
