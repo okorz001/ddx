@@ -95,8 +95,8 @@ parseConstVar [Name x] = return $ Var x
 parseConstVar toks = ddxError $ "Unexpected token(s): " ++ show toks
 
 derive _ (Const _) = Const 0
--- Cannot use pattern matching to find equal parameters.
-derive x (Var y) = if x == y then Const 1 else Var y
+-- Cannot use pattern matching to check for equality.
+derive x (Var y) = Const $ if x == y then 1 else 0
 derive x (Sum a b) =
     let a' = derive x a
         b' = derive x b
