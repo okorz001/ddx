@@ -21,7 +21,7 @@ instance Monad DdxMaybe where
 
     fail = ddxError
 
-data Token = Name String | Value Double | Add | Sub | Mult | Div
+data Token = Name String | Val Double | Add | Sub | Mult | Div
     deriving(Show, Eq)
 
 tokenize str = tokenize' str []
@@ -32,7 +32,7 @@ tokenize' [] toks = return $ reverse toks
 tokenize' (x : xs) toks
     | isSpace x  = tokenize' xs toks
     | isLetter x = tokenizeName xs toks [x]
-    | isDigit x  = tokenizeValue xs toks [x]
+    | isDigit x  = tokenizeVal xs toks [x]
     | x == '+'   = tokenize' xs $ Add : toks
     | x == '-'   = tokenize' xs $ Sub : toks
     | x == '*'   = tokenize' xs $ Mult : toks
@@ -46,12 +46,12 @@ tokenizeName (x : xs) toks word
     | isLetter x = tokenizeName xs toks $ x : word
     | otherwise  = tokenize' (x : xs) $ pushName word toks
 
-pushValue word toks = Value(read . reverse $ word) : toks
+pushVal word toks = Val(read . reverse $ word) : toks
 
-tokenizeValue [] toks word = tokenize' [] $ pushValue word toks
-tokenizeValue (x : xs) toks word
-    | isDigit x = tokenizeValue xs toks $ x : word
-    | otherwise = tokenize' (x : xs) $ pushValue word toks
+tokenizeVal [] toks word = tokenize' [] $ pushVal word toks
+tokenizeVal (x : xs) toks word
+    | isDigit x = tokenizeVal xs toks $ x : word
+    | otherwise = tokenize' (x : xs) $ pushVal word toks
 
 data Expr = Var String | Const Double | Sum Expr Expr | Diff Expr Expr |
         Prod Expr Expr | Quo Expr Expr deriving(Show, Eq)
@@ -90,7 +90,7 @@ parseProdQuo toks =
         _ -> parseConstVar toks
 
 -- Const and Var are terminal. There should not be any other tokens.
-parseConstVar [Value x] = return $ Const x
+parseConstVar [Val x] = return $ Const x
 parseConstVar [Name x] = return $ Var x
 parseConstVar toks = ddxError $ "Unexpected token(s): " ++ show toks
 
