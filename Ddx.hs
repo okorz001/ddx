@@ -7,19 +7,16 @@ import Data.List
 newtype DdxMaybe a = DdxMaybe { getEither :: Either String a }
     deriving(Show)
 
--- Convenience function for creating a DdxMaybe from an error string.
-ddxError = DdxMaybe . Left
-
 instance Monad DdxMaybe where
-    return x = DdxMaybe $ Right x
-
     (DdxMaybe (Right x)) >>= f = f x
     -- TODO: Can this be expressed with less words?
     -- This is what I really want, but it fails:
     --      err >>= _ = err
     (DdxMaybe (Left err)) >>= _ = DdxMaybe $ Left err
 
-    fail = ddxError
+    return = DdxMaybe . Right
+
+    fail = DdxMaybe . Left
 
 data Token = Name String | Val Double | Add | Sub | Mult | Div
     deriving(Show, Eq)
@@ -37,7 +34,7 @@ tokenize' (x : xs) toks
     | x == '-'   = tokenize' xs $ Sub : toks
     | x == '*'   = tokenize' xs $ Mult : toks
     | x == '/'   = tokenize' xs $ Div : toks
-    | otherwise  = ddxError $ "Unrecognized symbol: " ++ [x]
+    | otherwise  = fail $ "Unrecognized symbol: " ++ [x]
 
 pushName word toks = Name(reverse word) : toks
 
@@ -92,7 +89,7 @@ parseProdQuo toks =
 -- Const and Var are terminal. There should not be any other tokens.
 parseConstVar [Val x] = return $ Const x
 parseConstVar [Name x] = return $ Var x
-parseConstVar toks = ddxError $ "Unexpected token(s): " ++ show toks
+parseConstVar toks = fail $ "Unexpected token(s): " ++ show toks
 
 derive _ (Const _) = Const 0
 -- Cannot use pattern matching to check for equality.
