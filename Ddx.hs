@@ -53,37 +53,33 @@ tokenizeVal (x : xs) toks word
 data Expr = Var String | Const Double | Sum Expr Expr | Diff Expr Expr |
         Prod Expr Expr | Quo Expr Expr deriving(Show, Eq)
 
+-- The earlier tokens are parsed, the looser the binding.
+parse toks = parseSumDiff toks
+
 -- Split a list on the first occurance of a key.
 findAndSplit keys items =
     case span (`notElem` keys) items of
         (left, []) -> (left, Nothing, [])
         (left, (key : right)) -> (left, Just key, right)
 
--- The earlier tokens are parsed, the looser the binding.
-parse toks = parseSumDiff toks
+tok2Expr Add = Sum
+tok2Expr Sub = Diff
+tok2Expr Mult = Prod
+tok2Expr Div = Quo
+
+buildExpr tok left right = do
+    left' <- parse left
+    right' <- parse right
+    return $ (tok2Expr tok) left' right'
 
 parseSumDiff toks =
     case findAndSplit [Add, Sub] toks of
-        (left, (Just Add), right) -> do
-            left' <- parse left
-            right' <- parse right
-            return $ Sum left' right'
-        (left, (Just Sub), right) -> do
-            left' <- parse left
-            right' <- parse right
-            return $ Diff left' right'
+        (left, (Just tok), right) -> buildExpr tok left right
         _ -> parseProdQuo toks
 
 parseProdQuo toks =
     case findAndSplit [Mult, Div] toks of
-        (left, (Just Mult), right) -> do
-            left' <- parse left
-            right' <- parse right
-            return $ Prod left' right'
-        (left, (Just Div), right) -> do
-            left' <- parse left
-            right' <- parse right
-            return $ Quo left' right'
+        (left, (Just tok), right) -> buildExpr tok left right
         _ -> parseConstVar toks
 
 -- Const and Var are terminal. There should not be any other tokens.
@@ -94,14 +90,8 @@ parseConstVar toks = fail $ "Unexpected token(s): " ++ show toks
 derive _ (Const _) = Const 0
 -- Cannot use pattern matching to check for equality.
 derive x (Var y) = Const $ if x == y then 1 else 0
-derive x (Sum a b) =
-    let a' = derive x a
-        b' = derive x b
-    in  Sum a' b'
-derive x (Diff a b) =
-    let a' = derive x a
-        b' = derive x b
-    in  Diff a' b'
+derive x (Sum a b) = Sum (derive x a) (derive x b)
+derive x (Diff a b) = Diff (derive x a) (derive x b)
 derive x (Prod a b) =
     let a' = derive x a
         b' = derive x b
@@ -113,45 +103,29 @@ derive x (Quo a b) =
         bot = Prod b b
     in  Quo top bot
 
+-- Convenience function for last-ditch effort reduction on binary operators.
+tryReduce expr a b =
+    let a' = reduce a
+        b' = reduce b
+    -- If neither side reduced successfully, just return the inputs to avoid
+    -- an never-ending cycle of failed reductions.
+    in  if a == a' && b == b' then expr a b else reduce $ expr a' b'
+
 reduce (Sum e (Const 0)) = reduce e
 reduce (Sum (Const 0) e) = reduce e
 reduce (Sum (Const a) (Const b)) = Const $ a + b
-reduce (Sum a b) =
-    let a' = reduce a
-        b' = reduce b
-        e = Sum a' b'
-    -- Only reduce again if we successfully reduced one of the terms.
-    -- Otherwise we'll get stuck in an infinite loop of failed reductions.
-    in if a' /= a || b' /= b then reduce e else e
+reduce (Sum a b) = tryReduce Sum a b
 reduce (Diff e (Const 0)) = reduce e
 reduce (Diff (Const a) (Const b)) = Const $ a - b
-reduce (Diff a b) =
-    let a' = reduce a
-        b' = reduce b
-        e = Diff a' b'
-    -- Only reduce again if we successfully reduced one of the terms.
-    -- Otherwise we'll get stuck in an infinite loop of failed reductions.
-    in if a' /= a || b' /= b then reduce e else e
+reduce (Diff a b) = tryReduce Diff a b
 reduce (Prod e (Const 0)) = Const 0
 reduce (Prod (Const 0) e) = Const 0
 reduce (Prod e (Const 1)) = reduce e
 reduce (Prod (Const 1) e) = reduce e
 reduce (Prod (Const a) (Const b)) = Const $ a * b
-reduce (Prod a b) =
-    let a' = reduce a
-        b' = reduce b
-        e = Prod a' b'
-    -- Only reduce again if we successfully reduced one of the terms.
-    -- Otherwise we'll get stuck in an infinite loop of failed reductions.
-    in if a' /= a || b' /= b then reduce e else e
+reduce (Prod a b) = tryReduce Prod a b
 reduce (Quo (Const 0) e) = Const 0
 reduce (Quo e (Const 1)) = reduce e
 reduce (Quo (Const a) (Const b)) = Const $ a / b
-reduce (Quo a b) =
-    let a' = reduce a
-        b' = reduce b
-        e = Quo a' b'
-    -- Only reduce again if we successfully reduced one of the terms.
-    -- Otherwise we'll get stuck in an infinite loop of failed reductions.
-    in if a' /= a || b' /= b then reduce e else e
+reduce (Quo a b) = tryReduce Quo a b
 reduce e = e
